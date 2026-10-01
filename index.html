@@ -1,0 +1,354 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>恩尼格玛密码机 · Enigma I 模拟器</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { background: #17130e; color: #e8e0d0; font-family: "Microsoft YaHei UI", "Microsoft YaHei", sans-serif; }
+  body { display: flex; flex-direction: column; align-items: center; padding: 26px 14px 60px; }
+
+  h1 { font-size: 22px; font-weight: 600; letter-spacing: 2px; color: #d8c9a8; }
+  .subtitle { font-size: 12px; color: #8f8468; margin: 4px 0 18px; letter-spacing: 1px; }
+
+  /* ============ 木箱与金属面板 ============ */
+  #machine {
+    width: 640px; max-width: 96vw; padding: 22px 22px 26px; border-radius: 16px;
+    background:
+      repeating-linear-gradient(93deg, rgba(0,0,0,.10) 0 3px, transparent 3px 42px),
+      linear-gradient(160deg, #8a5a33, #6b4526 55%, #4e3118);
+    box-shadow: 0 18px 50px rgba(0,0,0,.55), inset 0 2px 2px rgba(255,230,190,.25), inset 0 -3px 6px rgba(0,0,0,.4);
+    border: 2px solid #3a2412;
+  }
+  #panel {
+    background: linear-gradient(#3d3d3d, #262626); border-radius: 10px; padding: 18px 16px 16px;
+    box-shadow: inset 0 2px 8px rgba(0,0,0,.65), 0 1px 0 rgba(255,255,255,.08);
+  }
+
+  /* ============ 转子条 ============ */
+  #rotorbar { display: flex; align-items: stretch; justify-content: center; gap: 14px; margin-bottom: 16px; }
+  .ukw-tag {
+    align-self: center; padding: 6px 12px; border-radius: 6px; font-size: 13px; letter-spacing: 1px;
+    background: #1c1c1c; color: #b8ad8f; border: 1px solid #555; box-shadow: inset 0 1px 3px #000;
+  }
+  .rotor { text-align: center; cursor: pointer; user-select: none; }
+  .rotor .win {
+    width: 58px; height: 62px; border-radius: 6px; background: #0d0d0d; color: #f5f0e0;
+    font-family: Consolas, monospace; font-size: 34px; line-height: 62px; text-align: center;
+    border: 2px solid #4c4c4c; box-shadow: inset 0 3px 10px #000; transition: color .05s;
+  }
+  .rotor:hover .win { border-color: #8a7a50; }
+  .rotor .meta { margin-top: 5px; font-size: 11px; color: #9a9077; letter-spacing: 1px; }
+  .rotor .meta b { color: #c9bd9c; font-weight: 600; }
+
+  /* ============ 灯板与键盘（QWERTZ 布局） ============ */
+  .rowlist { display: flex; flex-direction: column; align-items: center; gap: 9px; }
+  .lrow, .krow { display: flex; gap: 9px; justify-content: center; }
+  .lrow { margin-left: 0; }
+  .lrow:nth-child(2), .krow:nth-child(2) { margin-left: 25px; }
+  .lrow:nth-child(3), .krow:nth-child(3) { margin-left: 68px; }
+
+  .lamp {
+    width: 44px; height: 44px; border-radius: 50%;
+    background: radial-gradient(circle at 38% 32%, #efe6cc, #cfc4a4 70%);
+    color: #4a4335; font-size: 16px; font-weight: 700;
+    display: flex; align-items: center; justify-content: center;
+    border: 2px solid #1a1a1a; box-shadow: inset 0 -2px 4px rgba(0,0,0,.35), 0 2px 4px rgba(0,0,0,.5);
+    transition: box-shadow .06s;
+  }
+  .lamp.lit {
+    background: radial-gradient(circle at 38% 32%, #fff3b0, #ffd23e 65%);
+    color: #5c4400;
+    box-shadow: 0 0 22px 8px rgba(255,208,60,.65), inset 0 -2px 4px rgba(150,90,0,.4);
+  }
+
+  #keyboard { margin-top: 16px; padding-top: 14px; border-top: 1px solid #4a4a4a; }
+  .key {
+    width: 46px; height: 46px; border-radius: 50%; border: none; cursor: pointer;
+    background: radial-gradient(circle at 38% 30%, #f4edda, #ddd2b6 75%);
+    color: #2e2921; font-size: 17px; font-weight: 700; font-family: inherit;
+    box-shadow: 0 4px 5px rgba(0,0,0,.6), inset 0 -3px 4px rgba(0,0,0,.22);
+  }
+  .key:active, .key.down {
+    transform: translateY(3px);
+    background: radial-gradient(circle at 38% 30%, #e6dcc2, #cfc3a2 75%);
+    box-shadow: 0 1px 1px rgba(0,0,0,.6), inset 0 -2px 3px rgba(0,0,0,.3);
+  }
+
+  /* ============ 记录区（机器上方像记录员抄写） ============ */
+  #tape {
+    margin-top: 14px; background: #101010; border-radius: 6px; padding: 10px 14px;
+    font-family: Consolas, monospace; font-size: 15px; letter-spacing: 2px;
+    border: 1px solid #3a3a3a; box-shadow: inset 0 2px 6px #000; min-height: 76px;
+  }
+  #tape .lbl { font-family: "Microsoft YaHei UI", sans-serif; font-size: 11px; color: #77705a; letter-spacing: 2px; display: block; margin-bottom: 2px; }
+  #tapeIn  { color: #b8b2a0; word-break: break-all; }
+  #tapeOut { color: #ffd23e; word-break: break-all; }
+
+  /* ============ 控制台卡片 ============ */
+  .card {
+    width: 640px; max-width: 96vw; margin-top: 14px; padding: 16px 18px;
+    background: #221e17; border: 1px solid #3b3325; border-radius: 10px;
+  }
+  .card h2 { font-size: 14px; color: #c9bd9c; font-weight: 600; margin-bottom: 10px; letter-spacing: 1px; }
+  .card .hint { font-size: 12px; color: #8f8468; line-height: 1.7; }
+
+  .cfg-grid { display: flex; flex-wrap: wrap; gap: 14px 22px; align-items: flex-end; }
+  .cfg-item label { display: block; font-size: 11px; color: #8f8468; margin-bottom: 4px; letter-spacing: 1px; }
+  .cfg-item select, .cfg-item input {
+    background: #14110c; color: #e8e0d0; border: 1px solid #4a4232; border-radius: 5px;
+    padding: 5px 8px; font-size: 14px; font-family: inherit; width: 58px; text-align: center;
+  }
+  .cfg-item select { width: 92px; text-align: left; }
+  .cfg-item input:focus, .cfg-item select:focus { outline: 1px solid #8a7a50; }
+  .cfg-item .pair { display: flex; align-items: center; gap: 4px; }
+  .cfg-item .pair span { color: #6b6350; font-size: 12px; }
+  #plugInput { width: 260px !important; text-align: left !important; letter-spacing: 2px; }
+
+  .btn {
+    background: linear-gradient(#5a4a2c, #463921); color: #e8dcbc; border: 1px solid #7a6844;
+    border-radius: 6px; padding: 7px 16px; font-size: 13px; cursor: pointer; font-family: inherit;
+    letter-spacing: 1px; box-shadow: 0 2px 4px rgba(0,0,0,.4);
+  }
+  .btn:hover { background: linear-gradient(#6b5936, #554628); }
+  .btn:active { transform: translateY(1px); }
+  #cfgErr { color: #e07a5f; font-size: 12px; margin-top: 8px; min-height: 16px; }
+
+  textarea {
+    width: 100%; background: #14110c; color: #e8e0d0; border: 1px solid #4a4232; border-radius: 6px;
+    padding: 8px 10px; font-size: 14px; font-family: Consolas, monospace; letter-spacing: 1px;
+    resize: vertical; min-height: 64px;
+  }
+  textarea:focus { outline: 1px solid #8a7a50; }
+  #batchOut {
+    width: 100%; background: #0e0c08; color: #ffd23e; border: 1px solid #4a4232; border-radius: 6px;
+    padding: 8px 10px; font-size: 14px; font-family: Consolas, monospace; letter-spacing: 2px;
+    min-height: 46px; word-break: break-all; white-space: pre-wrap;
+  }
+  .btnrow { display: flex; gap: 10px; margin-top: 10px; flex-wrap: wrap; }
+</style>
+</head>
+<body>
+
+<h1>恩尼格玛密码机</h1>
+<div class="subtitle">ENIGMA I · 1930s WEHRMACHT · 三转子 + 插线板模拟器</div>
+
+<!-- ============ 机器本体 ============ -->
+<div id="machine">
+  <div id="panel">
+
+    <div id="rotorbar">
+      <div class="ukw-tag" id="ukwTag">UKW-B</div>
+      <div class="rotor" title="左轮（慢轮）：点击 +1" data-idx="0">
+        <div class="win">A</div><div class="meta">左 <b id="rotorNameL">I</b> 环<b id="ringLblL">A</b></div>
+      </div>
+      <div class="rotor" title="中轮：点击 +1" data-idx="1">
+        <div class="win">A</div><div class="meta">中 <b id="rotorNameM">II</b> 环<b id="ringLblM">A</b></div>
+      </div>
+      <div class="rotor" title="右轮（快轮）：点击 +1" data-idx="2">
+        <div class="win">A</div><div class="meta">右 <b id="rotorNameR">III</b> 环<b id="ringLblR">A</b></div>
+      </div>
+    </div>
+
+    <div class="rowlist" id="lampboard"></div>
+
+    <div class="rowlist" id="keyboard"></div>
+
+    <div id="tape">
+      <span class="lbl">输入（明文）</span><div id="tapeIn">—</div>
+      <span class="lbl" style="margin-top:6px">输出（密文）</span><div id="tapeOut">—</div>
+    </div>
+  </div>
+</div>
+
+<!-- ============ 每日密钥配置 ============ -->
+<div class="card">
+  <h2>每日密钥设置</h2>
+  <div class="cfg-grid">
+    <div class="cfg-item"><label>左轮 / 环 / 起始</label>
+      <div class="pair">
+        <select id="rotL"><option selected>I</option><option>II</option><option>III</option><option>IV</option><option>V</option></select>
+        <input id="ringL" maxlength="1" value="A"><span>·</span>
+        <input id="posL" maxlength="1" value="A">
+      </div>
+    </div>
+    <div class="cfg-item"><label>中轮 / 环 / 起始</label>
+      <div class="pair">
+        <select id="rotM"><option>I</option><option selected>II</option><option>III</option><option>IV</option><option>V</option></select>
+        <input id="ringM" maxlength="1" value="A"><span>·</span>
+        <input id="posM" maxlength="1" value="A">
+      </div>
+    </div>
+    <div class="cfg-item"><label>右轮 / 环 / 起始</label>
+      <div class="pair">
+        <select id="rotR"><option>I</option><option>II</option><option selected>III</option><option>IV</option><option>V</option></select>
+        <input id="ringR" maxlength="1" value="A"><span>·</span>
+        <input id="posR" maxlength="1" value="A">
+      </div>
+    </div>
+    <div class="cfg-item"><label>反射板 UKW</label>
+      <select id="ukw" style="width:70px"><option>A</option><option selected>B</option><option>C</option></select>
+    </div>
+    <div class="cfg-item"><label>插线板（如 AB CD EF，至多 13 对）</label>
+      <input id="plugInput" placeholder="留空 = 不插线" value="">
+    </div>
+    <div class="cfg-item">
+      <button class="btn" id="applyBtn">应用并复位</button>
+    </div>
+  </div>
+  <div id="cfgErr"></div>
+</div>
+
+<!-- ============ 整段文本 ============ -->
+<div class="card">
+  <h2>整段加密 / 解密（同一操作）</h2>
+  <p class="hint" style="margin-bottom:8px">按上方当前设置新建一台机器处理整段文本（不动逐键状态）。恩尼格玛加密解密同流程：把密文粘回来再点一次，即还原明文。</p>
+  <textarea id="batchIn" placeholder="输入明文或密文（只处理字母，其余忽略）"></textarea>
+  <div class="btnrow">
+    <button class="btn" id="runBtn">运 行</button>
+    <button class="btn" id="copyBtn">复制结果</button>
+    <button class="btn" id="clearBtn">清空</button>
+  </div>
+  <div id="batchOut" style="margin-top:10px">—</div>
+</div>
+
+<!-- ============ 说明 ============ -->
+<div class="card">
+  <h2>说明</h2>
+  <p class="hint">
+    点击键盘或直接敲物理键盘打字：每按一键，转子先步进、灯板亮出加密结果，与真实机器一致。点击顶部转子窗口可像真机一样手拧转子（+1）。<br>
+    中轮缺口触发「双步进」（左中轮连动）已按史实实现；反射板保证任何字母永远不会加密成它自己。<br>
+    彩蛋验证：默认设置（I-II-III / B / AAA / AAA / 不插线）下连按五次 A，灯板应依次亮出 <b style="color:#ffd23e">B D Z G O</b> —— 这正是维基百科收录的标准测试向量。
+  </p>
+</div>
+
+<script src="enigma-core.js"></script>
+<script>
+(function () {
+  'use strict';
+  const C = window.EnigmaCore;
+  const ROWS = ['QWERTZUIOP', 'ASDFGHJKL', 'YXCVBNM']; // 德式 QWERTZ 布局（Y/Z 对调）
+
+  // ---- 生成灯板与键盘 ----
+  const lampboard = document.getElementById('lampboard');
+  const keyboard = document.getElementById('keyboard');
+  const lamps = {};
+  ROWS.forEach((row, r) => {
+    const lr = document.createElement('div'); lr.className = 'lrow';
+    const kr = document.createElement('div'); kr.className = 'krow';
+    for (const ch of row) {
+      const lamp = document.createElement('div'); lamp.className = 'lamp'; lamp.textContent = ch;
+      lr.appendChild(lamp); lamps[ch] = lamp;
+      const key = document.createElement('button'); key.className = 'key'; key.textContent = ch;
+      key.addEventListener('mousedown', () => { key.classList.add('down'); press(ch); });
+      key.addEventListener('mouseup',   () => key.classList.remove('down'));
+      key.addEventListener('mouseleave',() => key.classList.remove('down'));
+      kr.appendChild(key);
+    }
+    lampboard.appendChild(lr); keyboard.appendChild(kr);
+  });
+
+  // ---- 状态 ----
+  let machine = null;
+  const tape = { plain: '', cipher: '' };
+  const $ = (id) => document.getElementById(id);
+  const rotEls = document.querySelectorAll('.rotor');
+  const winEls = [rotEls[0].querySelector('.win'), rotEls[1].querySelector('.win'), rotEls[2].querySelector('.win')];
+
+  function readConfig() {
+    return {
+      rotors: [$('rotL').value, $('rotM').value, $('rotR').value],
+      reflector: $('ukw').value,
+      rings: $('ringL').value + $('ringM').value + $('ringR').value,
+      positions: $('posL').value + $('posM').value + $('posR').value,
+      plugs: $('plugInput').value,
+    };
+  }
+
+  function group5(s) { return s.replace(/(.{5})/g, '$1 ').trim(); }
+
+  function renderMachine() {
+    const w = machine.window;
+    winEls.forEach((el, i) => (el.textContent = w[i]));
+    $('ukwTag').textContent = 'UKW-' + $('ukw').value;
+    $('rotorNameL').textContent = $('rotL').value; $('rotorNameM').textContent = $('rotM').value; $('rotorNameR').textContent = $('rotR').value;
+    $('ringLblL').textContent = $('ringL').value; $('ringLblM').textContent = $('ringM').value; $('ringLblR').textContent = $('ringR').value;
+    $('tapeIn').textContent = tape.plain ? group5(tape.plain) : '—';
+    $('tapeOut').textContent = tape.cipher ? group5(tape.cipher) : '—';
+  }
+
+  function applyConfig() {
+    try {
+      machine = new C.Enigma(readConfig());
+      tape.plain = ''; tape.cipher = '';
+      $('cfgErr').textContent = '';
+      renderMachine();
+    } catch (err) {
+      $('cfgErr').textContent = '✗ ' + err.message;
+    }
+  }
+
+  // ---- 亮灯 ----
+  let lampTimer = null;
+  function flashLamp(ch) {
+    for (const k in lamps) lamps[k].classList.remove('lit');
+    lamps[ch].classList.add('lit');
+    clearTimeout(lampTimer);
+    lampTimer = setTimeout(() => lamps[ch].classList.remove('lit'), 420);
+  }
+
+  function press(ch) {
+    if (!machine) return;
+    const lit = machine.encryptChar(ch);
+    tape.plain += ch; tape.cipher += lit;
+    flashLamp(lit);
+    renderMachine();
+  }
+
+  // ---- 手拧转子 ----
+  rotEls.forEach((el, idx) => el.addEventListener('click', () => {
+    machine.nudge(idx, 1);
+    renderMachine();
+  }));
+
+  // ---- 物理键盘（输入框聚焦时忽略）----
+  window.addEventListener('keydown', (e) => {
+    if (e.repeat || e.ctrlKey || e.metaKey || e.altKey) return;
+    const tag = (e.target.tagName || '').toUpperCase();
+    if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+    if (!/^[a-zA-Z]$/.test(e.key)) return;
+    press(e.key.toUpperCase());
+  });
+
+  // ---- 整段运行 ----
+  $('runBtn').addEventListener('click', () => {
+    try {
+      const m = new C.Enigma(readConfig());
+      $('batchOut').textContent = m.encryptText($('batchIn').value).replace(/(.{5})/g, '$1 ').trim() || '—';
+      $('cfgErr').textContent = '';
+    } catch (err) {
+      $('cfgErr').textContent = '✗ ' + err.message;
+    }
+  });
+  $('copyBtn').addEventListener('click', () => {
+    const t = $('batchOut').textContent.replace(/ /g, '');
+    if (t === '—') return;
+    const done = () => { $('copyBtn').textContent = '已复制'; setTimeout(() => ($('copyBtn').textContent = '复制结果'), 1200); };
+    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(t).then(done, () => fallbackCopy(t, done));
+    else fallbackCopy(t, done);
+  });
+  function fallbackCopy(t, done) {
+    const ta = document.createElement('textarea'); ta.value = t; document.body.appendChild(ta);
+    ta.select(); document.execCommand('copy'); document.body.removeChild(ta); done();
+  }
+  $('clearBtn').addEventListener('click', () => {
+    $('batchIn').value = ''; $('batchOut').textContent = '—';
+  });
+
+  $('applyBtn').addEventListener('click', applyConfig);
+  applyConfig(); // 初始：I-II-III / B / AAA / AAA（对应维基测试向量）
+})();
+</script>
+</body>
+</html>
