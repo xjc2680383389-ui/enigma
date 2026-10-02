@@ -33,7 +33,7 @@ section('2. Symmetry: same config decrypts ciphertext back to plaintext');
   const cipher = enc.encryptText(plain);
   const dec = new Enigma(cfg);
   assert(dec.encryptText(cipher) === plain, 'round-trip with 8 plugs / rings XZM / pos QEV');
-  assert(cipher.length === plain.length, 'length preserved (30 chars)');
+  assert(cipher.length === plain.length, 'length preserved (' + plain.length + ' chars)');
 }
 
 // —— 3. 双步进（middle-rotor double-step）——
@@ -106,7 +106,7 @@ section('7. Determinism and long-text round-trip');
   const r1 = new Enigma(cfg).encryptText(long);
   const r2 = new Enigma(cfg).encryptText(long);
   assert(r1 === r2, 'same input twice -> identical ciphertext');
-  assert(new Enigma(cfg).encryptText(r1) === long, '300-char round-trip with 10 plugs');
+  assert(new Enigma(cfg).encryptText(r1) === long, long.length + '-char round-trip with 10 plugs');
 }
 
 // —— 8. nudge / reset / window ——
@@ -147,6 +147,26 @@ section('10. Different reflectors give different output');
   const b = new Enigma({ ...base, reflector: 'B' }).encryptText('REFLEKTOR');
   const c = new Enigma({ ...base, reflector: 'C' }).encryptText('REFLEKTOR');
   assert(a !== b && b !== c && a !== c, 'UKW-A/B/C outputs all differ');
+}
+
+// —— 11. 非默认环设置的外部已知向量（不是本实现生成的期望值）——
+// https://py-enigma.readthedocs.io/en/latest/guide.html#example-communication-procedure
+section('11. Independent vectors with non-default rings and 10 plugs');
+{
+  const cfg = { rotors: ['II', 'IV', 'V'], reflector: 'B', rings: 'BUL', plugs: 'AV BS CG DL FU HZ IN KM OW RX' };
+  assert(new Enigma({ ...cfg, positions: 'WXC' }).encryptText('BLA') === 'KCH', 'external message-key vector BLA -> KCH');
+  assert(new Enigma({ ...cfg, positions: 'WXC' }).encryptText('KCH') === 'BLA', 'external message-key decrypt KCH -> BLA');
+  const plain = 'THEXRUSSIANSXAREXCOMINGX';
+  const cipher = 'NIBLFMYMLLUFWCASCSSNVHAZ';
+  assert(new Enigma({ ...cfg, positions: 'BLA' }).encryptText(plain) === cipher, 'external full-message vector with rings BUL');
+  assert(new Enigma({ ...cfg, positions: 'BLA' }).encryptText(cipher) === plain, 'external full-message decrypt with rings BUL');
+}
+{
+  // 缺口与窗口字母环固定；改变环设置不能改变可见的进位字母。
+  const e = new Enigma({ rotors: ['I', 'II', 'III'], rings: 'BUL', positions: 'ADU' });
+  const seq = [];
+  for (let i = 0; i < 4; i++) { e.encryptChar('A'); seq.push(e.window); }
+  assert(seq.join(' ') === 'ADV AEW BFX BFY', 'double-step window sequence remains correct with rings BUL');
 }
 
 console.log('\n================================');
