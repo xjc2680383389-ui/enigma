@@ -203,3 +203,26 @@ test('delayed clipboard completion cannot restore stale feedback after an edit',
   assert.equal(f.ids.copyBtn.textContent, '复制结果'); assert.equal(f.ids.copyBtn.disabled, true);
   assert.match(f.ids.batchStatus.textContent, /输入已修改/);
 });
+
+test('delayed clipboard rejection cannot copy an invalidated result through fallback', async () => {
+  let rejectCopy;
+  const f = fixture({ clipboard: { writeText: () => new Promise((_, reject) => { rejectCopy = reject; }) } });
+  await f.edit('batchIn', 'A'); await f.ids.runBtn.emit('click');
+  const copying = f.ids.copyBtn.emit('click');
+  await f.edit('batchIn', 'B'); await f.ids.runBtn.emit('click');
+  rejectCopy(new Error('denied')); await copying;
+  assert.deepEqual(f.copies, []);
+  assert.equal(f.ids.batchOut.textContent, 'A');
+  assert.equal(f.ids.copyBtn.textContent, '复制结果');
+});
+
+test('successful copy retry clears the previous failure status', async () => {
+  let denied = true;
+  const f = fixture({ copyResult: false, clipboard: { writeText: async () => { if (denied) throw new Error('denied'); } } });
+  await f.edit('batchIn', 'AAAAA'); await f.ids.runBtn.emit('click');
+  await f.ids.copyBtn.emit('click');
+  assert.match(f.ids.batchStatus.textContent, /未允许复制/);
+  denied = false; await f.ids.copyBtn.emit('click');
+  assert.equal(f.ids.copyBtn.textContent, '已复制');
+  assert.equal(f.ids.batchStatus.textContent, '已处理 5 个 A–Z 字母。');
+});
