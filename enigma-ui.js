@@ -170,10 +170,11 @@
       if (navigator.clipboard && navigator.clipboard.writeText) {
         try { await navigator.clipboard.writeText(text); copied = true; } catch (_) { /* 尝试本地文件兼容路径。 */ }
       }
-      if (!copied) copied = fallbackCopy(text);
       if (version !== resultVersion) return;
+      if (!copied) copied = fallbackCopy(text);
       if (!copied) throw new Error('浏览器未允许复制，请手动选择结果复制。');
       $('copyBtn').textContent = '已复制';
+      $('batchStatus').textContent = '已处理 ' + text.length + ' 个 A–Z 字母。';
       clearTimeout(copyTimer);
       copyTimer = setTimeout(() => ($('copyBtn').textContent = '复制结果'), 1200);
     } catch (err) {
